@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% set active = "staged" %}
+{% set title = "Staged Files" %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Staged for Deletion</h1>
+    <p class="subtitle">These files matched your rules and are pending deletion. Rescue a file to remove it from the queue.</p>
+</div>
+
+{% if staged_files %}
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Filename</th>
+                <th>Path</th>
+                <th>Size</th>
+                <th>Matched</th>
+                <th>Delete At</th>
+                <th>Notified</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for sf in staged_files %}
+            <tr>
+                <td>{{ sf.filename }}</td>
+                <td class="path-cell">{{ sf.filepath }}</td>
+                <td>{{ "%.1f"|format(sf.size_bytes / 1048576) }} MB</td>
+                <td>{{ sf.matched_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>{{ sf.delete_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>{{ "Yes" if sf.notified else "No" }}</td>
+                <td>
+                    <button class="btn btn-sm"
+                            hx-delete="/api/scan/staged/{{ sf.id }}"
+                            hx-confirm="Rescue this file?"
+                            hx-target="closest tr"
+                            hx-swap="outerHTML">Rescue</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card empty-state">
+    <p>No files currently staged for deletion.</p>
+</div>
+{% endif %}
+{% endblock %}

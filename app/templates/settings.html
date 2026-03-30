@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% set active = "settings" %}
+{% set title = "Settings" %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Global Settings</h1>
+</div>
+
+<form id="settings-form" class="card settings-form">
+    <div class="form-group">
+        <label for="cron_expression">Scan Schedule (cron)</label>
+        <input type="text" id="cron_expression" name="cron_expression" class="input"
+               value="{{ settings.cron_expression }}" placeholder="0 3 * * *">
+        <span class="hint">Standard 5-field cron expression. Default: daily at 3am.</span>
+    </div>
+
+    <div class="form-group">
+        <label for="notify_lead_hours">Notification Lead Time (hours)</label>
+        <input type="number" id="notify_lead_hours" name="notify_lead_hours" class="input"
+               value="{{ settings.notify_lead_hours }}" min="0">
+        <span class="hint">Hours before scheduled deletion to send a warning notification.</span>
+    </div>
+
+    <div class="form-group">
+        <label for="trash_retention_days">Trash Retention (days)</label>
+        <input type="number" id="trash_retention_days" name="trash_retention_days" class="input"
+               value="{{ settings.trash_retention_days }}" min="1">
+        <span class="hint">Days to keep deleted files in the trash folder before permanent removal.</span>
+    </div>
+
+    <div class="form-group">
+        <label for="apprise_urls">Notification URLs (Apprise)</label>
+        <textarea id="apprise_urls" name="apprise_urls" class="input" rows="3"
+                  placeholder="tgram://bottoken/ChatID, discord://webhook_id/webhook_token">{{ settings.apprise_urls }}</textarea>
+        <span class="hint">Comma-separated <a href="https://github.com/caronc/apprise/wiki" target="_blank">Apprise URLs</a>. Supports Telegram, Discord, email, ntfy, and 80+ services.</span>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Save Settings</button>
+        <button type="button" class="btn" onclick="testNotify()">Test Notification</button>
+    </div>
+    <div id="settings-msg" class="msg" style="display:none"></div>
+</form>
+
+<script>
+document.getElementById('settings-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const data = {
+        cron_expression: document.getElementById('cron_expression').value,
+        notify_lead_hours: parseInt(document.getElementById('notify_lead_hours').value),
+        trash_retention_days: parseInt(document.getElementById('trash_retention_days').value),
+        apprise_urls: document.getElementById('apprise_urls').value,
+    };
+    fetch('/api/settings', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data),
+    }).then(r => r.json()).then(d => {
+        showMsg('Settings saved.', 'success');
+    }).catch(err => showMsg('Error saving settings.', 'error'));
+});
+
+function testNotify() {
+    fetch('/api/notify/test', { method: 'POST' })
+        .then(r => r.json())
+        .then(d => showMsg(d.message, d.ok ? 'success' : 'error'));
+}
+
+function showMsg(text, type) {
+    const el = document.getElementById('settings-msg');
+    el.textContent = text;
+    el.className = 'msg msg-' + type;
+    el.style.display = '';
+    setTimeout(() => el.style.display = 'none', 4000);
+}
+</script>
+{% endblock %}

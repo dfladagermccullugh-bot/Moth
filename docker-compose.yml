@@ -1,0 +1,12 @@
+services:
+  moth:
+    build: .
+    container_name: moth
+    restart: unless-stopped
+    ports:
+      - "${MOTH_PORT:-6969}:8000"
+    volumes:
+      - ./data:/data
+      - /your/media:/media
+      - "${MOTH_TRASH_PATH}:/moth/trash"
+    env_file: .env

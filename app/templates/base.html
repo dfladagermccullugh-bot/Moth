@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moth — {{ title|default("Media Lifecycle Manager") }}</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+</head>
+<body>
+    <nav>
+        <div class="nav-brand">&#x1F98B; Moth</div>
+        <div class="nav-links">
+            <a href="/" class="{% if active == 'rules' %}active{% endif %}">Rules</a>
+            <a href="/staged" class="{% if active == 'staged' %}active{% endif %}">Staged</a>
+            <a href="/log" class="{% if active == 'log' %}active{% endif %}">Log</a>
+            <a href="/settings" class="{% if active == 'settings' %}active{% endif %}">Settings</a>
+        </div>
+    </nav>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>
