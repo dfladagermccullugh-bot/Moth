@@ -47,7 +47,7 @@ nav {
 .nav-links a.active { background: var(--accent); color: #fff; }
 
 /* Layout */
-main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+main { max-width: 1400px; margin: 0 auto; padding: 1.5rem; }
 
 .page-header { margin-bottom: 1.5rem; }
 .page-header h1 { font-size: 1.5rem; font-weight: 600; }
@@ -72,8 +72,8 @@ th { color: var(--text-muted); font-weight: 600; text-transform: uppercase; font
 .path-cell { max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .notes-cell { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.size-range { display: flex; align-items: center; gap: 0.3rem; }
-.date-rule { display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
+.actions-cell { white-space: nowrap; }
+.actions-cell .btn { margin-right: 0.25rem; }
 
 /* Inputs */
 .input {
@@ -88,6 +88,7 @@ th { color: var(--text-muted); font-weight: 600; text-transform: uppercase; font
 .input:focus { outline: none; border-color: var(--accent); }
 .input:disabled { opacity: 0.6; cursor: not-allowed; }
 .input-sm { width: 80px; }
+.input-mid { width: 130px; }
 select.input { cursor: pointer; }
 textarea.input { resize: vertical; font-family: inherit; }
 .hint { font-size: 0.75rem; color: var(--text-muted); }
@@ -146,7 +147,7 @@ textarea.input { resize: vertical; font-family: inherit; }
 }
 .tag-remove { background: none; border: none; color: #fff; cursor: pointer; font-size: 0.85rem; padding: 0; line-height: 1; }
 .tags-input-wrap { position: relative; }
-.tag-input { width: 100px !important; margin-top: 0.25rem; }
+.tag-input { width: 130px !important; margin-top: 0.25rem; }
 .suggestions {
     position: absolute; z-index: 10; background: var(--bg-card); border: 1px solid var(--border);
     border-radius: var(--radius); margin-top: 2px; max-height: 150px; overflow-y: auto;
