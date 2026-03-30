@@ -1,5 +1,6 @@
 import json
-from datetime import datetime
+import os
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -21,7 +22,7 @@ class Rule(SQLModel, table=True):
     date_threshold_days: int = 90
     extensions: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     enabled: bool = True
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 
 class StagedFile(SQLModel, table=True):
@@ -30,7 +31,7 @@ class StagedFile(SQLModel, table=True):
     filepath: str
     filename: str
     size_bytes: int
-    matched_at: datetime = Field(default_factory=datetime.utcnow)
+    matched_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     delete_at: datetime
     notified: bool = False
     deleted: bool = False
@@ -48,7 +49,7 @@ class Settings(SQLModel, table=True):
 
 class ScanLog(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    started_at: datetime = Field(default_factory=datetime.utcnow)
+    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     completed_at: Optional[datetime] = None
     files_matched: int = 0
     files_deleted: int = 0
@@ -56,7 +57,7 @@ class ScanLog(SQLModel, table=True):
     notes: Optional[str] = None
 
 
-DATABASE_URL = "sqlite:////data/moth.db"
+DATABASE_URL = os.getenv("MOTH_DATABASE_URL", "sqlite:////data/moth.db")
 
 engine = create_engine(
     DATABASE_URL,
@@ -78,7 +79,6 @@ def init_db():
     with Session(engine) as session:
         settings = session.get(Settings, 1)
         if not settings:
-            import os
             settings = Settings(
                 cron_expression=os.getenv("MOTH_CRON", "0 3 * * *"),
                 notify_lead_hours=int(os.getenv("MOTH_NOTIFY_LEAD_HOURS", "48")),
