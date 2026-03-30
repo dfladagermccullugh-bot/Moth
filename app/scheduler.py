@@ -1,3 +1,5 @@
+import logging
+
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlmodel import Session
@@ -5,6 +7,7 @@ from sqlmodel import Session
 from app.database import engine, Settings
 from app.scanner import run_scan, cleanup_trash
 
+logger = logging.getLogger(__name__)
 scheduler = BackgroundScheduler()
 
 
@@ -45,6 +48,9 @@ def start_scheduler():
 
 def reschedule(cron_expression: str):
     """Update the scan schedule with a new cron expression."""
+    if not scheduler.running:
+        logger.warning("Scheduler not running; skipping reschedule")
+        return
     _apply_cron(cron_expression)
 
 

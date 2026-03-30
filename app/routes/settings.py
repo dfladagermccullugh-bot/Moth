@@ -1,5 +1,6 @@
+from apscheduler.triggers.cron import CronTrigger
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlmodel import Session
 
 from app.database import Settings, get_session
@@ -16,6 +17,16 @@ class SettingsUpdate(BaseModel):
     apprise_urls: str | None = None
     first_run_complete: bool | None = None
     trash_retention_days: int | None = None
+
+    @field_validator("cron_expression")
+    @classmethod
+    def validate_cron(cls, v: str | None) -> str | None:
+        if v is not None:
+            try:
+                CronTrigger.from_crontab(v)
+            except ValueError as e:
+                raise ValueError(f"Invalid cron expression: {e}")
+        return v
 
 
 @router.get("/api/settings")

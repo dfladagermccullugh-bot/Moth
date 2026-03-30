@@ -1,10 +1,23 @@
+import os
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from app.database import Rule, DateType, get_session
 
 router = APIRouter(prefix="/api/rules", tags=["rules"])
+
+
+def _validate_directory(v: str) -> str:
+    """Validate that a directory path is absolute and exists."""
+    # Resolve to canonical path to prevent traversal attacks
+    resolved = os.path.realpath(v)
+    if not os.path.isabs(resolved):
+        raise ValueError("Directory must be an absolute path")
+    if not os.path.isdir(resolved):
+        raise ValueError(f"Directory does not exist: {resolved}")
+    return resolved
 
 
 class RuleCreate(BaseModel):
@@ -16,6 +29,11 @@ class RuleCreate(BaseModel):
     extensions: list[str] = []
     enabled: bool = True
 
+    @field_validator("directory")
+    @classmethod
+    def validate_directory(cls, v: str) -> str:
+        return _validate_directory(v)
+
 
 class RuleUpdate(BaseModel):
     directory: str | None = None
@@ -25,6 +43,13 @@ class RuleUpdate(BaseModel):
     date_threshold_days: int | None = None
     extensions: list[str] | None = None
     enabled: bool | None = None
+
+    @field_validator("directory")
+    @classmethod
+    def validate_directory(cls, v: str | None) -> str | None:
+        if v is not None:
+            return _validate_directory(v)
+        return v
 
 
 @router.get("")

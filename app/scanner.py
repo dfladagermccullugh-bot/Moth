@@ -1,12 +1,16 @@
+import logging
 import os
 import shutil
-from datetime import datetime, timedelta
+import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from sqlmodel import Session, select
 
 from app.database import Rule, StagedFile, ScanLog, Settings, DateType
 from app.notifier import notify_pre_deletion, notify_deletion_confirmed, notify_scan_error
+
+logger = logging.getLogger(__name__)
 
 
 def _get_file_date(filepath: str, date_type: DateType) -> datetime:
@@ -40,7 +44,7 @@ def _file_matches_rule(filepath: str, rule: Rule) -> bool:
     except OSError:
         return False
 
-    threshold = datetime.utcnow() - timedelta(days=rule.date_threshold_days)
+    threshold = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=rule.date_threshold_days)
     if file_date > threshold:
         return False
 
@@ -58,13 +62,13 @@ def _walk_directory(directory: str, extensions: list[str]):
                     if ext not in ext_set:
                         continue
                 yield os.path.join(root, fname)
-    except PermissionError:
-        pass
+    except PermissionError as e:
+        logger.warning("Permission denied accessing directory %s: %s", directory, e)
 
 
 def run_scan(session: Session, dry_run: bool = False) -> ScanLog:
     """Execute a full scan cycle. Returns the ScanLog entry."""
-    log = ScanLog(started_at=datetime.utcnow(), dry_run=dry_run)
+    log = ScanLog(started_at=datetime.now(timezone.utc).replace(tzinfo=None), dry_run=dry_run)
     session.add(log)
     session.commit()
     session.refresh(log)
@@ -108,7 +112,7 @@ def run_scan(session: Session, dry_run: bool = False) -> ScanLog:
                 ).first()
 
                 if not existing:
-                    delete_at = datetime.utcnow() + timedelta(
+                    delete_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(
                         hours=settings.notify_lead_hours + 24
                     )
                     staged = StagedFile(
@@ -133,7 +137,7 @@ def run_scan(session: Session, dry_run: bool = False) -> ScanLog:
             session.commit()
 
             # Send notifications for files approaching deletion
-            notify_threshold = datetime.utcnow() + timedelta(
+            notify_threshold = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(
                 hours=settings.notify_lead_hours
             )
             pending_notify = session.exec(
@@ -151,7 +155,7 @@ def run_scan(session: Session, dry_run: bool = False) -> ScanLog:
                 session.commit()
 
             # Delete files past their delete_at time
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
             ready_to_delete = session.exec(
                 select(StagedFile).where(
                     StagedFile.deleted == False,
@@ -162,16 +166,20 @@ def run_scan(session: Session, dry_run: bool = False) -> ScanLog:
             deleted_filenames: list[str] = []
             for sf in ready_to_delete:
                 try:
-                    trash_dest = os.path.join(
-                        settings.trash_path, sf.filename
-                    )
+                    # Use basename to prevent path traversal attacks
+                    safe_name = os.path.basename(sf.filename)
+                    # Add UUID prefix to prevent filename collisions
+                    unique_name = f"{uuid.uuid4().hex[:8]}_{safe_name}"
+                    trash_dest = os.path.join(settings.trash_path, unique_name)
                     os.makedirs(settings.trash_path, exist_ok=True)
                     shutil.move(sf.filepath, trash_dest)
+                    # Mark deleted AFTER successful move
                     sf.deleted = True
                     files_deleted += 1
                     deleted_filenames.append(sf.filename)
                 except Exception as e:
                     notes_parts.append(f"Failed to delete {sf.filepath}: {e}")
+                    logger.error("Failed to move %s to trash: %s", sf.filepath, e)
 
             session.commit()
 
@@ -182,7 +190,7 @@ def run_scan(session: Session, dry_run: bool = False) -> ScanLog:
         notes_parts.append(f"Scan error: {e}")
         notify_scan_error(session, str(e))
 
-    log.completed_at = datetime.utcnow()
+    log.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
     log.files_matched = files_matched
     log.files_deleted = files_deleted
     log.notes = "; ".join(notes_parts) if notes_parts else None
@@ -200,7 +208,7 @@ def cleanup_trash(session: Session):
         return
 
     retention = timedelta(days=settings.trash_retention_days)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     for fname in os.listdir(settings.trash_path):
         fpath = os.path.join(settings.trash_path, fname)
