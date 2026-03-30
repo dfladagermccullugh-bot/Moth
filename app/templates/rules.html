@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% set active = "rules" %}
+{% set title = "Rules" %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Monitored Directories</h1>
+</div>
+
+<div class="table-wrap">
+    <table id="rules-table">
+        <thead>
+            <tr>
+                <th>Directory</th>
+                <th>Size Range</th>
+                <th>Date Rule</th>
+                <th>Extensions</th>
+                <th>Enabled</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="rules-body">
+            {% for rule in rules %}
+            <tr data-rule-id="{{ rule.id }}">
+                <td>
+                    <input type="text" class="input" name="directory" value="{{ rule.directory }}" disabled>
+                </td>
+                <td class="size-range">
+                    <input type="number" class="input input-sm" name="size_min_mb" value="{{ rule.size_min_mb or '' }}" placeholder="Min MB" disabled>
+                    <span>&ndash;</span>
+                    <input type="number" class="input input-sm" name="size_max_mb" value="{{ rule.size_max_mb or '' }}" placeholder="Max MB" disabled>
+                </td>
+                <td class="date-rule">
+                    <select class="input input-sm" name="date_type" disabled>
+                        <option value="last_accessed" {% if rule.date_type.value == 'last_accessed' %}selected{% endif %}>Last Accessed</option>
+                        <option value="last_modified" {% if rule.date_type.value == 'last_modified' %}selected{% endif %}>Last Modified</option>
+                        <option value="date_added" {% if rule.date_type.value == 'date_added' %}selected{% endif %}>Date Added</option>
+                    </select>
+                    <input type="number" class="input input-sm" name="date_threshold_days" value="{{ rule.date_threshold_days }}" placeholder="Days" disabled>
+                    <span class="hint">days</span>
+                </td>
+                <td>
+                    <div class="tags-container" data-rule-id="{{ rule.id }}">
+                        {% for ext in rule.extensions %}
+                        <span class="tag">{{ ext }}<button class="tag-remove" disabled>&times;</button></span>
+                        {% endfor %}
+                    </div>
+                </td>
+                <td>
+                    <label class="toggle">
+                        <input type="checkbox" {% if rule.enabled %}checked{% endif %}
+                               hx-patch="/api/rules/{{ rule.id }}/toggle"
+                               hx-swap="none">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </td>
+                <td class="actions">
+                    <button class="btn btn-sm" onclick="editRule(this)">Edit</button>
+                    <button class="btn btn-sm btn-save" onclick="saveRule(this)" style="display:none">Save</button>
+                    <button class="btn btn-sm btn-danger"
+                            hx-delete="/api/rules/{{ rule.id }}"
+                            hx-confirm="Delete this rule?"
+                            hx-target="closest tr"
+                            hx-swap="outerHTML">Del</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="page-actions">
+    <button class="btn" onclick="addRuleRow()">+ Add Rule</button>
+</div>
+
+<script>
+let extensions = [];
+fetch('/api/extensions').then(r => r.json()).then(data => { extensions = data; });
+
+function editRule(btn) {
+    const row = btn.closest('tr');
+    row.querySelectorAll('input, select').forEach(el => el.disabled = false);
+    btn.style.display = 'none';
+    row.querySelector('.btn-save').style.display = '';
+}
+
+function saveRule(btn) {
+    const row = btn.closest('tr');
+    const ruleId = row.dataset.ruleId;
+    const data = {
+        directory: row.querySelector('[name=directory]').value,
+        size_min_mb: parseFloat(row.querySelector('[name=size_min_mb]').value) || null,
+        size_max_mb: parseFloat(row.querySelector('[name=size_max_mb]').value) || null,
+        date_type: row.querySelector('[name=date_type]').value,
+        date_threshold_days: parseInt(row.querySelector('[name=date_threshold_days]').value) || 90,
+        extensions: Array.from(row.querySelectorAll('.tag')).map(t => t.textContent.replace('×', '').trim()),
+    };
+
+    const method = ruleId === 'new' ? 'POST' : 'PUT';
+    const url = ruleId === 'new' ? '/api/rules' : `/api/rules/${ruleId}`;
+
+    fetch(url, {
+        method: method,
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data),
+    }).then(r => {
+        if (r.ok) location.reload();
+        else r.json().then(d => alert(d.detail || 'Error saving rule'));
+    });
+}
+
+function addRuleRow() {
+    const tbody = document.getElementById('rules-body');
+    const row = document.createElement('tr');
+    row.dataset.ruleId = 'new';
+    row.innerHTML = `
+        <td><input type="text" class="input" name="directory" placeholder="/media/movies"></td>
+        <td class="size-range">
+            <input type="number" class="input input-sm" name="size_min_mb" placeholder="Min MB">
+            <span>&ndash;</span>
+            <input type="number" class="input input-sm" name="size_max_mb" placeholder="Max MB">
+        </td>
+        <td class="date-rule">
+            <select class="input input-sm" name="date_type">
+                <option value="last_accessed">Last Accessed</option>
+                <option value="last_modified" selected>Last Modified</option>
+                <option value="date_added">Date Added</option>
+            </select>
+            <input type="number" class="input input-sm" name="date_threshold_days" value="90" placeholder="Days">
+            <span class="hint">days</span>
+        </td>
+        <td>
+            <div class="tags-input-wrap">
+                <div class="tags-container" data-rule-id="new"></div>
+                <input type="text" class="input input-sm tag-input" placeholder="Add ext..."
+                       oninput="showSuggestions(this)" onkeydown="handleTagKey(event, this)">
+                <div class="suggestions"></div>
+            </div>
+        </td>
+        <td>
+            <label class="toggle">
+                <input type="checkbox" checked>
+                <span class="toggle-slider"></span>
+            </label>
+        </td>
+        <td class="actions">
+            <button class="btn btn-sm btn-save" onclick="saveRule(this)">Save</button>
+            <button class="btn btn-sm btn-danger" onclick="this.closest('tr').remove()">Cancel</button>
+        </td>
+    `;
+    tbody.appendChild(row);
+}
+
+function showSuggestions(input) {
+    const val = input.value.toLowerCase();
+    const sugDiv = input.nextElementSibling;
+    if (!val) { sugDiv.innerHTML = ''; return; }
+    const matches = extensions.filter(e => e.startsWith(val)).slice(0, 8);
+    sugDiv.innerHTML = matches.map(m =>
+        `<div class="suggestion" onclick="addTag(this, '${m}')">${m}</div>`
+    ).join('');
+}
+
+function addTag(suggestionEl, ext) {
+    const wrap = suggestionEl.closest('.tags-input-wrap');
+    const container = wrap.querySelector('.tags-container');
+    const input = wrap.querySelector('.tag-input');
+    const span = document.createElement('span');
+    span.className = 'tag';
+    span.innerHTML = `${ext}<button class="tag-remove" onclick="this.parentElement.remove()">&times;</button>`;
+    container.appendChild(span);
+    input.value = '';
+    wrap.querySelector('.suggestions').innerHTML = '';
+}
+
+function handleTagKey(event, input) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        const val = input.value.trim().toLowerCase();
+        if (!val) return;
+        const wrap = input.closest('.tags-input-wrap');
+        const container = wrap.querySelector('.tags-container');
+        const span = document.createElement('span');
+        span.className = 'tag';
+        span.innerHTML = `${val}<button class="tag-remove" onclick="this.parentElement.remove()">&times;</button>`;
+        container.appendChild(span);
+        input.value = '';
+        wrap.querySelector('.suggestions').innerHTML = '';
+    }
+}
+</script>
+{% endblock %}

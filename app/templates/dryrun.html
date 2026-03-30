@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% set active = "dryrun" %}
+{% set title = "First Run" %}
+
+{% block content %}
+<div class="page-header">
+    <h1>First-Run Dry Run</h1>
+    <p class="subtitle">Before Moth can begin managing your media, you need to review what it would do.</p>
+</div>
+
+{% if first_run_complete %}
+<div class="card">
+    <p>First run has already been acknowledged. <a href="/">Go to Rules</a></p>
+</div>
+{% else %}
+<div class="card">
+    <p>Click <strong>Run Dry Run</strong> to see which files match your current rules. No files will be moved or deleted.</p>
+    <button class="btn" id="run-dryrun-btn" onclick="runDryRun()">Run Dry Run</button>
+</div>
+
+<div id="dryrun-results" style="display:none">
+    <div class="card">
+        <h2>Dry Run Results</h2>
+        <p id="dryrun-summary"></p>
+    </div>
+    <form action="/dryrun/acknowledge" method="post">
+        <button class="btn btn-primary" type="submit">Acknowledge &amp; Activate</button>
+    </form>
+</div>
+
+<script>
+function runDryRun() {
+    const btn = document.getElementById('run-dryrun-btn');
+    btn.disabled = true;
+    btn.textContent = 'Scanning...';
+
+    fetch('/api/scan/dry-run', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('dryrun-summary').textContent =
+                `Scan complete. ${data.files_matched} file(s) matched under current rules.`;
+            document.getElementById('dryrun-results').style.display = '';
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.textContent = 'Run Dry Run';
+            alert('Error running dry run: ' + err);
+        });
+}
+</script>
+{% endif %}
+{% endblock %}

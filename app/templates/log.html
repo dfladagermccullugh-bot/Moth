@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% set active = "log" %}
+{% set title = "Scan Log" %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Scan History</h1>
+</div>
+
+{% if logs %}
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Started</th>
+                <th>Completed</th>
+                <th>Matched</th>
+                <th>Deleted</th>
+                <th>Dry Run</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td>{{ log.started_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>{{ log.completed_at.strftime('%Y-%m-%d %H:%M') if log.completed_at else '—' }}</td>
+                <td>{{ log.files_matched }}</td>
+                <td>{{ log.files_deleted }}</td>
+                <td>{{ "Yes" if log.dry_run else "No" }}</td>
+                <td class="notes-cell">{{ log.notes or '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card empty-state">
+    <p>No scans have been run yet.</p>
+</div>
+{% endif %}
+{% endblock %}
