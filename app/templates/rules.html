@@ -12,11 +12,13 @@
         <thead>
             <tr>
                 <th>Directory</th>
-                <th>Size Range</th>
-                <th>Date Rule</th>
+                <th>Min Size (MB)</th>
+                <th>Max Size (MB)</th>
+                <th>Date Type</th>
+                <th>Older Than (Days)</th>
                 <th>Extensions</th>
                 <th>Enabled</th>
-                <th>Actions</th>
+                <th></th>
             </tr>
         </thead>
         <tbody id="rules-body">
@@ -25,19 +27,21 @@
                 <td>
                     <input type="text" class="input" name="directory" value="{{ rule.directory }}" disabled>
                 </td>
-                <td class="size-range">
-                    <input type="number" class="input input-sm" name="size_min_mb" value="{{ rule.size_min_mb or '' }}" placeholder="Min MB" disabled>
-                    <span>&ndash;</span>
-                    <input type="number" class="input input-sm" name="size_max_mb" value="{{ rule.size_max_mb or '' }}" placeholder="Max MB" disabled>
+                <td>
+                    <input type="number" class="input input-mid" name="size_min_mb" value="{{ rule.size_min_mb or '' }}" placeholder="No min" disabled>
                 </td>
-                <td class="date-rule">
-                    <select class="input input-sm" name="date_type" disabled>
+                <td>
+                    <input type="number" class="input input-mid" name="size_max_mb" value="{{ rule.size_max_mb or '' }}" placeholder="No max" disabled>
+                </td>
+                <td>
+                    <select class="input input-mid" name="date_type" disabled>
                         <option value="last_accessed" {% if rule.date_type.value == 'last_accessed' %}selected{% endif %}>Last Accessed</option>
                         <option value="last_modified" {% if rule.date_type.value == 'last_modified' %}selected{% endif %}>Last Modified</option>
                         <option value="date_added" {% if rule.date_type.value == 'date_added' %}selected{% endif %}>Date Added</option>
                     </select>
-                    <input type="number" class="input input-sm" name="date_threshold_days" value="{{ rule.date_threshold_days }}" placeholder="Days" disabled>
-                    <span class="hint">days</span>
+                </td>
+                <td>
+                    <input type="number" class="input input-mid" name="date_threshold_days" value="{{ rule.date_threshold_days }}" placeholder="Days" disabled>
                 </td>
                 <td>
                     <div class="tags-container" data-rule-id="{{ rule.id }}">
@@ -54,14 +58,15 @@
                         <span class="toggle-slider"></span>
                     </label>
                 </td>
-                <td class="actions">
-                    <button class="btn btn-sm" onclick="editRule(this)">Edit</button>
+                <td class="actions-cell">
+                    <button class="btn btn-sm" onclick="editRule(this)" title="Edit this rule">Edit</button>
                     <button class="btn btn-sm btn-save" onclick="saveRule(this)" style="display:none">Save</button>
                     <button class="btn btn-sm btn-danger"
                             hx-delete="/api/rules/{{ rule.id }}"
                             hx-confirm="Delete this rule?"
                             hx-target="closest tr"
-                            hx-swap="outerHTML">Del</button>
+                            hx-swap="outerHTML"
+                            title="Delete this rule">Delete</button>
                 </td>
             </tr>
             {% endfor %}
@@ -93,7 +98,7 @@ function saveRule(btn) {
         size_max_mb: parseFloat(row.querySelector('[name=size_max_mb]').value) || null,
         date_type: row.querySelector('[name=date_type]').value,
         date_threshold_days: parseInt(row.querySelector('[name=date_threshold_days]').value) || 90,
-        extensions: Array.from(row.querySelectorAll('.tag')).map(t => t.textContent.replace('×', '').trim()),
+        extensions: Array.from(row.querySelectorAll('.tag')).map(t => t.textContent.replace('\u00d7', '').trim()),
     };
 
     const method = ruleId === 'new' ? 'POST' : 'PUT';
@@ -115,24 +120,20 @@ function addRuleRow() {
     row.dataset.ruleId = 'new';
     row.innerHTML = `
         <td><input type="text" class="input" name="directory" placeholder="/media/movies"></td>
-        <td class="size-range">
-            <input type="number" class="input input-sm" name="size_min_mb" placeholder="Min MB">
-            <span>&ndash;</span>
-            <input type="number" class="input input-sm" name="size_max_mb" placeholder="Max MB">
-        </td>
-        <td class="date-rule">
-            <select class="input input-sm" name="date_type">
+        <td><input type="number" class="input input-mid" name="size_min_mb" placeholder="No min"></td>
+        <td><input type="number" class="input input-mid" name="size_max_mb" placeholder="No max"></td>
+        <td>
+            <select class="input input-mid" name="date_type">
                 <option value="last_accessed">Last Accessed</option>
                 <option value="last_modified" selected>Last Modified</option>
                 <option value="date_added">Date Added</option>
             </select>
-            <input type="number" class="input input-sm" name="date_threshold_days" value="90" placeholder="Days">
-            <span class="hint">days</span>
         </td>
+        <td><input type="number" class="input input-mid" name="date_threshold_days" value="90" placeholder="Days"></td>
         <td>
             <div class="tags-input-wrap">
                 <div class="tags-container" data-rule-id="new"></div>
-                <input type="text" class="input input-sm tag-input" placeholder="Add ext..."
+                <input type="text" class="input input-mid tag-input" placeholder="Add ext..."
                        oninput="showSuggestions(this)" onkeydown="handleTagKey(event, this)">
                 <div class="suggestions"></div>
             </div>
@@ -143,7 +144,7 @@ function addRuleRow() {
                 <span class="toggle-slider"></span>
             </label>
         </td>
-        <td class="actions">
+        <td class="actions-cell">
             <button class="btn btn-sm btn-save" onclick="saveRule(this)">Save</button>
             <button class="btn btn-sm btn-danger" onclick="this.closest('tr').remove()">Cancel</button>
         </td>
