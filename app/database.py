@@ -56,7 +56,7 @@ class ScanLog(SQLModel, table=True):
     notes: Optional[str] = None
 
 
-DATABASE_URL = "sqlite:///data/moth.db"
+DATABASE_URL = "sqlite:////data/moth.db"
 
 engine = create_engine(
     DATABASE_URL,
