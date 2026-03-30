@@ -160,6 +160,35 @@ textarea.input { resize: vertical; font-family: inherit; }
 .settings-form label { display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.3rem; }
 .settings-form .input { max-width: 400px; }
 
+/* Toggle label (inline with toggle) */
+.toggle-label { display: flex !important; align-items: center; gap: 0.75rem; }
+
+/* Progress bar */
+.progress-bar {
+    position: relative;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    height: 22px;
+    min-width: 80px;
+    overflow: hidden;
+}
+.progress-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.3s;
+}
+.progress-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #fff;
+}
+
 /* Messages */
 .msg { margin-top: 0.75rem; padding: 0.5rem 0.75rem; border-radius: var(--radius); font-size: 0.85rem; }
 .msg-success { background: rgba(74, 186, 122, 0.15); color: var(--success); }

@@ -16,6 +16,7 @@
                 <th>Filename</th>
                 <th>Path</th>
                 <th>Size</th>
+                {% if watch_info %}<th>Last Watched</th>{% endif %}
                 <th>Matched</th>
                 <th>Delete At</th>
                 <th>Notified</th>
@@ -24,10 +25,20 @@
         </thead>
         <tbody>
             {% for sf in staged_files %}
+            {% set watched = watch_info.get(sf.filepath) if watch_info else None %}
             <tr>
                 <td>{{ sf.filename }}</td>
                 <td class="path-cell">{{ sf.filepath }}</td>
                 <td>{{ "%.1f"|format(sf.size_bytes / 1048576) }} MB</td>
+                {% if watch_info %}
+                <td>
+                    {% if watched %}
+                        {{ watched.strftime('%Y-%m-%d') }}
+                    {% else %}
+                        <span class="hint">Never</span>
+                    {% endif %}
+                </td>
+                {% endif %}
                 <td>{{ sf.matched_at.strftime('%Y-%m-%d %H:%M') }}</td>
                 <td>{{ sf.delete_at.strftime('%Y-%m-%d %H:%M') }}</td>
                 <td>{{ "Yes" if sf.notified else "No" }}</td>

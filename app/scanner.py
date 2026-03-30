@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import shutil
@@ -9,11 +10,17 @@ from sqlmodel import Session, select
 
 from app.database import Rule, StagedFile, ScanLog, Settings, DateType
 from app.notifier import notify_pre_deletion, notify_deletion_confirmed, notify_scan_error
+from app.tautulli import get_client_from_settings, build_watch_date_cache, TautulliError
 
 logger = logging.getLogger(__name__)
 
 
-def _get_file_date(filepath: str, date_type: DateType) -> datetime:
+def _get_file_date(filepath: str, date_type: DateType, watch_cache: dict[str, datetime] | None = None) -> datetime:
+    if date_type == DateType.last_watched:
+        if watch_cache and filepath in watch_cache:
+            return watch_cache[filepath]
+        # No watch history — treat as never watched (very old date triggers deletion)
+        return datetime.min
     stat = os.stat(filepath)
     if date_type == DateType.last_accessed:
         return datetime.fromtimestamp(stat.st_atime)
@@ -23,7 +30,7 @@ def _get_file_date(filepath: str, date_type: DateType) -> datetime:
         return datetime.fromtimestamp(stat.st_ctime)
 
 
-def _file_matches_rule(filepath: str, rule: Rule) -> bool:
+def _file_matches_rule(filepath: str, rule: Rule, watch_cache: dict[str, datetime] | None = None) -> bool:
     ext = Path(filepath).suffix.lstrip(".").lower()
     if rule.extensions and ext not in [e.lower() for e in rule.extensions]:
         return False
@@ -40,7 +47,7 @@ def _file_matches_rule(filepath: str, rule: Rule) -> bool:
         return False
 
     try:
-        file_date = _get_file_date(filepath, rule.date_type)
+        file_date = _get_file_date(filepath, rule.date_type, watch_cache)
     except OSError:
         return False
 
@@ -66,6 +73,31 @@ def _walk_directory(directory: str, extensions: list[str]):
         logger.warning("Permission denied accessing directory %s: %s", directory, e)
 
 
+def _build_watch_cache_if_needed(rules: list[Rule], settings: Settings) -> dict[str, datetime] | None:
+    """Build the Tautulli watch date cache if any rule uses last_watched."""
+    needs_tautulli = any(r.date_type == DateType.last_watched for r in rules)
+    if not needs_tautulli:
+        return None
+
+    client = get_client_from_settings(settings)
+    if not client:
+        logger.warning("Rules use last_watched but Tautulli is not configured/enabled — those rules will be skipped")
+        return None
+
+    path_mapping = None
+    if settings.tautulli_path_mapping:
+        try:
+            path_mapping = json.loads(settings.tautulli_path_mapping)
+        except (json.JSONDecodeError, TypeError):
+            logger.warning("Invalid tautulli_path_mapping JSON, ignoring")
+
+    try:
+        return build_watch_date_cache(client, path_mapping)
+    except TautulliError as e:
+        logger.error("Failed to build Tautulli watch cache: %s", e)
+        return None
+
+
 def run_scan(session: Session, dry_run: bool = False) -> ScanLog:
     """Execute a full scan cycle. Returns the ScanLog entry."""
     log = ScanLog(started_at=datetime.now(timezone.utc).replace(tzinfo=None), dry_run=dry_run)
@@ -81,17 +113,25 @@ def run_scan(session: Session, dry_run: bool = False) -> ScanLog:
     try:
         rules = session.exec(select(Rule).where(Rule.enabled == True)).all()
 
+        # Build Tautulli watch cache if needed
+        watch_cache = _build_watch_cache_if_needed(rules, settings)
+
         # Track which filepaths are matched this scan (for un-staging)
         matched_filepaths: set[str] = set()
 
         for rule in rules:
+            # Skip last_watched rules when Tautulli cache is unavailable
+            if rule.date_type == DateType.last_watched and watch_cache is None:
+                notes_parts.append(f"Skipped rule {rule.id} (last_watched): Tautulli unavailable")
+                continue
+
             if not os.path.isdir(rule.directory):
                 notes_parts.append(f"Directory not found: {rule.directory}")
                 continue
 
             for filepath in _walk_directory(rule.directory, rule.extensions):
                 try:
-                    if not _file_matches_rule(filepath, rule):
+                    if not _file_matches_rule(filepath, rule, watch_cache):
                         continue
                 except Exception as e:
                     notes_parts.append(f"Error checking {filepath}: {e}")

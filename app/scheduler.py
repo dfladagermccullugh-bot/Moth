@@ -6,6 +6,7 @@ from sqlmodel import Session
 
 from app.database import engine, Settings
 from app.scanner import run_scan, cleanup_trash
+from app.suggestions import check_season_pickups
 
 logger = logging.getLogger(__name__)
 scheduler = BackgroundScheduler()
@@ -26,6 +27,15 @@ def _scheduled_trash_cleanup():
         cleanup_trash(session)
 
 
+def _scheduled_season_check():
+    """Check for season pickup suggestions."""
+    with Session(engine) as session:
+        settings = session.get(Settings, 1)
+        if not settings or not settings.season_suggest_enabled:
+            return
+        check_season_pickups(session)
+
+
 def start_scheduler():
     """Initialize and start the scheduler with current settings."""
     with Session(engine) as session:
@@ -39,6 +49,15 @@ def start_scheduler():
         _scheduled_trash_cleanup,
         CronTrigger.from_crontab("0 4 * * *"),
         id="trash_cleanup",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+
+    # Season pickup check runs daily at 5am
+    scheduler.add_job(
+        _scheduled_season_check,
+        CronTrigger.from_crontab("0 5 * * *"),
+        id="season_check",
         replace_existing=True,
         misfire_grace_time=3600,
     )

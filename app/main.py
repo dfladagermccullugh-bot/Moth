@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -9,9 +10,10 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from sqlmodel import Session, select
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.database import init_db, get_session, Settings, Rule, StagedFile, ScanLog
-from app.routes import rules, scan, settings
+from app.database import init_db, get_session, Settings, Rule, StagedFile, ScanLog, SeasonSuggestion
+from app.routes import rules, scan, settings, suggestions
 from app.scheduler import start_scheduler
+from app.tautulli import get_client_from_settings, build_watch_date_cache, TautulliError
 
 # Configure structured logging
 logging.basicConfig(
@@ -55,6 +57,7 @@ app.add_middleware(ApiKeyMiddleware)
 app.include_router(rules.router)
 app.include_router(scan.router)
 app.include_router(settings.router)
+app.include_router(suggestions.router)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
@@ -101,8 +104,24 @@ def staged_page(request: Request, session: Session = Depends(get_session)):
     staged = session.exec(
         select(StagedFile).where(StagedFile.deleted == False)
     ).all()
+    # Fetch watch dates from Tautulli if available
+    s = session.get(Settings, 1)
+    watch_info = {}
+    if s and s.tautulli_enabled:
+        client = get_client_from_settings(s)
+        if client:
+            path_mapping = None
+            if s.tautulli_path_mapping:
+                try:
+                    path_mapping = json.loads(s.tautulli_path_mapping)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            try:
+                watch_info = build_watch_date_cache(client, path_mapping)
+            except TautulliError:
+                pass
     return templates.TemplateResponse(
-        "staged.html", {"request": request, "staged_files": staged}
+        "staged.html", {"request": request, "staged_files": staged, "watch_info": watch_info}
     )
 
 
@@ -115,6 +134,20 @@ def log_page(request: Request, session: Session = Depends(get_session)):
     ).all()
     return templates.TemplateResponse(
         "log.html", {"request": request, "logs": logs}
+    )
+
+
+@app.get("/suggestions")
+def suggestions_page(request: Request, session: Session = Depends(get_session)):
+    if not _check_first_run(session):
+        return RedirectResponse(url="/dryrun", status_code=302)
+    s = session.get(Settings, 1)
+    active_suggestions = session.exec(
+        select(SeasonSuggestion).where(SeasonSuggestion.dismissed == False).order_by(SeasonSuggestion.suggested_at.desc())
+    ).all()
+    return templates.TemplateResponse(
+        "suggestions.html",
+        {"request": request, "suggestions": active_suggestions, "settings": s},
     )
 
 
