@@ -7,6 +7,6 @@ services:
       - "${MOTH_PORT:-6969}:8000"
     volumes:
       - ./data:/data
-      - C:/Users/LCAC/Downloads/Media:/media
+      - /path/to/your/media:/media
       - "${MOTH_TRASH_PATH}:/moth/trash"
     env_file: .env
