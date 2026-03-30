@@ -65,7 +65,7 @@ def rules_list():
 
 @rules.command("add")
 @click.option("--directory", "-d", prompt="Directory path", help="Absolute path to monitor")
-@click.option("--date-type", type=click.Choice(["last_accessed", "last_modified", "date_added"]), default="last_modified")
+@click.option("--date-type", type=click.Choice(["last_accessed", "last_modified", "date_added", "last_watched"]), default="last_modified")
 @click.option("--threshold", "-t", type=int, default=90, help="Days threshold")
 @click.option("--extensions", "-e", default="mkv,mp4,avi", help="Comma-separated extensions")
 @click.option("--size-min", type=float, default=None, help="Min file size in MB")
@@ -162,7 +162,10 @@ def settings_get():
     """Print current settings."""
     data = api("GET", "/api/settings")
     for key in ["cron_expression", "notify_lead_hours", "apprise_urls",
-                "first_run_complete", "trash_path", "trash_retention_days"]:
+                "first_run_complete", "trash_path", "trash_retention_days",
+                "tautulli_url", "tautulli_enabled", "tautulli_api_key_set",
+                "season_suggest_enabled", "season_suggest_threshold_pct",
+                "season_suggest_users"]:
         click.echo(f"{key}: {data.get(key)}")
 
 

@@ -43,6 +43,87 @@
     <div id="settings-msg" class="msg" style="display:none"></div>
 </form>
 
+<div class="page-header" style="margin-top: 2rem;">
+    <h2>Tautulli Integration</h2>
+    <p class="subtitle">Connect to Tautulli for watch-aware cleanup and season pickup suggestions.</p>
+</div>
+
+<form id="tautulli-form" class="card settings-form">
+    <div class="form-group">
+        <label class="toggle-label">
+            <label class="toggle">
+                <input type="checkbox" id="tautulli_enabled" {% if settings.tautulli_enabled %}checked{% endif %}>
+                <span class="toggle-slider"></span>
+            </label>
+            Enable Tautulli Integration
+        </label>
+    </div>
+
+    <div class="form-group">
+        <label for="tautulli_url">Tautulli URL</label>
+        <input type="text" id="tautulli_url" name="tautulli_url" class="input"
+               value="{{ settings.tautulli_url }}" placeholder="http://192.168.1.50:8181">
+        <span class="hint">Base URL of your Tautulli instance.</span>
+    </div>
+
+    <div class="form-group">
+        <label for="tautulli_api_key">Tautulli API Key</label>
+        <input type="password" id="tautulli_api_key" name="tautulli_api_key" class="input"
+               value="{% if settings.tautulli_api_key %}****{% endif %}" placeholder="Enter API key">
+        <span class="hint">Found in Tautulli > Settings > Web Interface > API Key.</span>
+    </div>
+
+    <div class="form-group">
+        <label for="tautulli_path_mapping">Path Mapping (JSON)</label>
+        <textarea id="tautulli_path_mapping" name="tautulli_path_mapping" class="input" rows="2"
+                  placeholder='{"plex_path": "moth_path"}'>{{ settings.tautulli_path_mapping }}</textarea>
+        <span class="hint">Maps Plex file paths to Moth mount paths. Example: <code>{"/data/TV Shows": "/media/tv"}</code></span>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Save Tautulli Settings</button>
+        <button type="button" class="btn" onclick="testTautulli()">Test Connection</button>
+    </div>
+    <div id="tautulli-msg" class="msg" style="display:none"></div>
+</form>
+
+<div class="page-header" style="margin-top: 2rem;">
+    <h2>Season Pickup Suggestions</h2>
+    <p class="subtitle">Get notified when users are finishing a season and the next one isn't in your library.</p>
+</div>
+
+<form id="suggestions-form" class="card settings-form">
+    <div class="form-group">
+        <label class="toggle-label">
+            <label class="toggle">
+                <input type="checkbox" id="season_suggest_enabled" {% if settings.season_suggest_enabled %}checked{% endif %}>
+                <span class="toggle-slider"></span>
+            </label>
+            Enable Season Suggestions
+        </label>
+        <span class="hint">Requires Tautulli integration to be enabled.</span>
+    </div>
+
+    <div class="form-group">
+        <label for="season_suggest_threshold_pct">Progress Threshold (%)</label>
+        <input type="number" id="season_suggest_threshold_pct" name="season_suggest_threshold_pct" class="input"
+               value="{{ settings.season_suggest_threshold_pct }}" min="1" max="100">
+        <span class="hint">Suggest pickup when a user has watched this percentage of a season. Default: 75%.</span>
+    </div>
+
+    <div class="form-group">
+        <label for="season_suggest_users">Track Users</label>
+        <input type="text" id="season_suggest_users" name="season_suggest_users" class="input"
+               value="{{ settings.season_suggest_users }}" placeholder="Leave empty to track all users">
+        <span class="hint">Comma-separated Tautulli usernames. Empty = all users.</span>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Save Suggestion Settings</button>
+    </div>
+    <div id="suggestions-msg" class="msg" style="display:none"></div>
+</form>
+
 <script>
 document.getElementById('settings-form').addEventListener('submit', function(e) {
     e.preventDefault();
@@ -52,23 +133,58 @@ document.getElementById('settings-form').addEventListener('submit', function(e) 
         trash_retention_days: parseInt(document.getElementById('trash_retention_days').value),
         apprise_urls: document.getElementById('apprise_urls').value,
     };
+    saveSettings(data, 'settings-msg');
+});
+
+document.getElementById('tautulli-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const apiKeyInput = document.getElementById('tautulli_api_key').value;
+    const data = {
+        tautulli_enabled: document.getElementById('tautulli_enabled').checked,
+        tautulli_url: document.getElementById('tautulli_url').value,
+        tautulli_path_mapping: document.getElementById('tautulli_path_mapping').value,
+    };
+    // Only send API key if it was changed from the masked value
+    if (apiKeyInput && apiKeyInput !== '****') {
+        data.tautulli_api_key = apiKeyInput;
+    }
+    saveSettings(data, 'tautulli-msg');
+});
+
+document.getElementById('suggestions-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const data = {
+        season_suggest_enabled: document.getElementById('season_suggest_enabled').checked,
+        season_suggest_threshold_pct: parseInt(document.getElementById('season_suggest_threshold_pct').value),
+        season_suggest_users: document.getElementById('season_suggest_users').value,
+    };
+    saveSettings(data, 'suggestions-msg');
+});
+
+function saveSettings(data, msgId) {
     fetch('/api/settings', {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(data),
     }).then(r => r.json()).then(d => {
-        showMsg('Settings saved.', 'success');
-    }).catch(err => showMsg('Error saving settings.', 'error'));
-});
+        showMsg(msgId, 'Settings saved.', 'success');
+    }).catch(err => showMsg(msgId, 'Error saving settings.', 'error'));
+}
 
 function testNotify() {
     fetch('/api/notify/test', { method: 'POST' })
         .then(r => r.json())
-        .then(d => showMsg(d.message, d.ok ? 'success' : 'error'));
+        .then(d => showMsg('settings-msg', d.message, d.ok ? 'success' : 'error'));
 }
 
-function showMsg(text, type) {
-    const el = document.getElementById('settings-msg');
+function testTautulli() {
+    fetch('/api/tautulli/test', { method: 'POST' })
+        .then(r => r.json())
+        .then(d => showMsg('tautulli-msg', d.message, d.ok ? 'success' : 'error'));
+}
+
+function showMsg(id, text, type) {
+    const el = document.getElementById(id);
     el.textContent = text;
     el.className = 'msg msg-' + type;
     el.style.display = '';

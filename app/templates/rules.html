@@ -38,6 +38,7 @@
                         <option value="last_accessed" {% if rule.date_type.value == 'last_accessed' %}selected{% endif %}>Last Accessed</option>
                         <option value="last_modified" {% if rule.date_type.value == 'last_modified' %}selected{% endif %}>Last Modified</option>
                         <option value="date_added" {% if rule.date_type.value == 'date_added' %}selected{% endif %}>Date Added</option>
+                        <option value="last_watched" {% if rule.date_type.value == 'last_watched' %}selected{% endif %}>Last Watched (Tautulli)</option>
                     </select>
                 </td>
                 <td>
@@ -127,6 +128,7 @@ function addRuleRow() {
                 <option value="last_accessed">Last Accessed</option>
                 <option value="last_modified" selected>Last Modified</option>
                 <option value="date_added">Date Added</option>
+                <option value="last_watched">Last Watched (Tautulli)</option>
             </select>
         </td>
         <td><input type="number" class="input input-mid" name="date_threshold_days" value="90" placeholder="Days"></td>

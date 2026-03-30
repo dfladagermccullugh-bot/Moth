@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% set active = "suggestions" %}
+{% set title = "Season Suggestions" %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Season Pickup Suggestions</h1>
+    <p class="subtitle">Shows where users are nearing the end of a season and the next season is not in your library.</p>
+</div>
+
+{% if not settings.tautulli_enabled %}
+<div class="card empty-state">
+    <p>Tautulli integration is not enabled. <a href="/settings">Configure Tautulli</a> to use season suggestions.</p>
+</div>
+{% elif not settings.season_suggest_enabled %}
+<div class="card empty-state">
+    <p>Season suggestions are disabled. <a href="/settings">Enable them in settings</a> to start receiving pickup recommendations.</p>
+</div>
+{% elif suggestions %}
+<div class="page-actions" style="margin-bottom: 1rem;">
+    <button class="btn" onclick="manualCheck()">Check Now</button>
+</div>
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Show</th>
+                <th>User</th>
+                <th>Current Season</th>
+                <th>Progress</th>
+                <th>Needs Season</th>
+                <th>Suggested</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in suggestions %}
+            <tr>
+                <td>{{ s.show_title }}</td>
+                <td>{{ s.user }}</td>
+                <td>S{{ "%02d"|format(s.current_season) }}</td>
+                <td>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: {{ s.progress_pct }}%"></div>
+                        <span class="progress-text">{{ s.progress_pct }}%</span>
+                    </div>
+                </td>
+                <td>Season {{ s.next_season }}</td>
+                <td>{{ s.suggested_at.strftime('%Y-%m-%d') }}</td>
+                <td>
+                    <button class="btn btn-sm"
+                            hx-post="/api/suggestions/{{ s.id }}/dismiss"
+                            hx-confirm="Dismiss this suggestion?"
+                            hx-target="closest tr"
+                            hx-swap="outerHTML">Dismiss</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="page-actions" style="margin-bottom: 1rem;">
+    <button class="btn" onclick="manualCheck()">Check Now</button>
+</div>
+<div class="card empty-state">
+    <p>No season pickup suggestions right now. Suggestions appear when users are nearing the end of a season and the next one isn't in your library.</p>
+</div>
+{% endif %}
+
+<div id="check-msg" class="msg" style="display:none"></div>
+
+<script>
+function manualCheck() {
+    fetch('/api/suggestions/check', { method: 'POST' })
+        .then(r => r.json())
+        .then(d => {
+            const el = document.getElementById('check-msg');
+            if (d.new_suggestions > 0) {
+                el.textContent = d.new_suggestions + ' new suggestion(s) found. Reloading...';
+                el.className = 'msg msg-success';
+                el.style.display = '';
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                el.textContent = 'No new suggestions found.';
+                el.className = 'msg msg-success';
+                el.style.display = '';
+                setTimeout(() => el.style.display = 'none', 4000);
+            }
+        })
+        .catch(() => {
+            const el = document.getElementById('check-msg');
+            el.textContent = 'Error running check.';
+            el.className = 'msg msg-error';
+            el.style.display = '';
+        });
+}
+</script>
+{% endblock %}

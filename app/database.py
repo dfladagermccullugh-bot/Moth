@@ -11,6 +11,7 @@ class DateType(str, Enum):
     last_accessed = "last_accessed"
     last_modified = "last_modified"
     date_added = "date_added"
+    last_watched = "last_watched"
 
 
 class Rule(SQLModel, table=True):
@@ -45,6 +46,27 @@ class Settings(SQLModel, table=True):
     first_run_complete: bool = False
     trash_path: str = "/moth/trash"
     trash_retention_days: int = 7
+    # Tautulli integration
+    tautulli_url: str = ""
+    tautulli_api_key: str = ""
+    tautulli_enabled: bool = False
+    tautulli_path_mapping: str = ""  # JSON: {"plex_prefix": "moth_prefix", ...}
+    # Season suggestions
+    season_suggest_enabled: bool = False
+    season_suggest_threshold_pct: int = 75
+    season_suggest_users: str = ""  # Comma-separated usernames (empty = all)
+
+
+class SeasonSuggestion(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    show_title: str
+    show_rating_key: str = ""
+    current_season: int
+    next_season: int
+    user: str
+    progress_pct: float
+    suggested_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    dismissed: bool = False
 
 
 class ScanLog(SQLModel, table=True):
@@ -84,6 +106,9 @@ def init_db():
                 notify_lead_hours=int(os.getenv("MOTH_NOTIFY_LEAD_HOURS", "48")),
                 apprise_urls=os.getenv("MOTH_APPRISE_URLS", ""),
                 trash_path=os.getenv("MOTH_TRASH_PATH", "/moth/trash"),
+                tautulli_url=os.getenv("MOTH_TAUTULLI_URL", ""),
+                tautulli_api_key=os.getenv("MOTH_TAUTULLI_API_KEY", ""),
+                tautulli_enabled=os.getenv("MOTH_TAUTULLI_ENABLED", "").lower() in ("1", "true", "yes"),
             )
             session.add(settings)
             session.commit()
