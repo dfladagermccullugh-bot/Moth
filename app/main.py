@@ -65,7 +65,7 @@ templates = Jinja2Templates(directory="app/templates")
 
 def _check_first_run(session: Session) -> bool:
     s = session.get(Settings, 1)
-    return s and s.first_run_complete
+    return bool(s and s.first_run_complete)
 
 
 @app.get("/")
@@ -74,7 +74,7 @@ def index(request: Request, session: Session = Depends(get_session)):
         return RedirectResponse(url="/dryrun", status_code=302)
     rules_list = session.exec(select(Rule)).all()
     return templates.TemplateResponse(
-        "rules.html", {"request": request, "rules": rules_list}
+        request, "rules.html", {"rules": rules_list}
     )
 
 
@@ -82,8 +82,8 @@ def index(request: Request, session: Session = Depends(get_session)):
 def dryrun_page(request: Request, session: Session = Depends(get_session)):
     s = session.get(Settings, 1)
     return templates.TemplateResponse(
-        "dryrun.html",
-        {"request": request, "first_run_complete": s.first_run_complete if s else False},
+        request, "dryrun.html",
+        {"first_run_complete": s.first_run_complete if s else False},
     )
 
 
@@ -121,7 +121,7 @@ def staged_page(request: Request, session: Session = Depends(get_session)):
             except TautulliError:
                 pass
     return templates.TemplateResponse(
-        "staged.html", {"request": request, "staged_files": staged, "watch_info": watch_info}
+        request, "staged.html", {"staged_files": staged, "watch_info": watch_info}
     )
 
 
@@ -133,7 +133,7 @@ def log_page(request: Request, session: Session = Depends(get_session)):
         select(ScanLog).order_by(ScanLog.started_at.desc()).limit(100)
     ).all()
     return templates.TemplateResponse(
-        "log.html", {"request": request, "logs": logs}
+        request, "log.html", {"logs": logs}
     )
 
 
@@ -146,8 +146,8 @@ def suggestions_page(request: Request, session: Session = Depends(get_session)):
         select(SeasonSuggestion).where(SeasonSuggestion.dismissed == False).order_by(SeasonSuggestion.suggested_at.desc())
     ).all()
     return templates.TemplateResponse(
-        "suggestions.html",
-        {"request": request, "suggestions": active_suggestions, "settings": s},
+        request, "suggestions.html",
+        {"suggestions": active_suggestions, "settings": s},
     )
 
 
@@ -157,5 +157,5 @@ def settings_page(request: Request, session: Session = Depends(get_session)):
         return RedirectResponse(url="/dryrun", status_code=302)
     s = session.get(Settings, 1)
     return templates.TemplateResponse(
-        "settings.html", {"request": request, "settings": s}
+        request, "settings.html", {"settings": s}
     )

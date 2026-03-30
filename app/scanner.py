@@ -244,7 +244,7 @@ def run_scan(session: Session, dry_run: bool = False) -> ScanLog:
 def cleanup_trash(session: Session):
     """Permanently delete files from trash that have exceeded retention."""
     settings = session.get(Settings, 1)
-    if not os.path.isdir(settings.trash_path):
+    if not settings or not os.path.isdir(settings.trash_path):
         return
 
     retention = timedelta(days=settings.trash_retention_days)
